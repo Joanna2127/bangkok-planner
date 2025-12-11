@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -111,6 +112,11 @@
                         </div>
                     </div>
 
+                    <!-- Reset Data Button (New) -->
+                    <button @click="confirmReset" class="bg-white p-2 rounded-full shadow-sm border border-gray-100 active:scale-95 transition-transform text-red-400">
+                        <i class="ph ph-arrow-counter-clockwise text-xl"></i>
+                    </button>
+
                     <!-- Currency Converter Toggle (Global) -->
                     <button @click="showConverterModal = true" class="bg-white p-2 rounded-full shadow-sm border border-gray-100 active:scale-95 transition-transform text-green-600">
                         <i class="ph ph-currency-circle-dollar text-xl"></i>
@@ -162,7 +168,6 @@
             
             <!-- View: TODO (With Categories) -->
             <div v-if="currentTab === 'todo'" class="px-4 py-4 space-y-6">
-                
                 <div v-for="(items, category) in todoGroups" :key="category">
                     <h3 class="text-xs font-bold text-gray-400 mb-2 pl-1 border-l-4 border-jp-yellow flex items-center justify-between">
                         {{ category }}
@@ -184,11 +189,10 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Floating Action Button for Todo -->
-                <button @click="openTodoModal()" class="fixed bottom-24 right-4 bg-jp-text text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-2xl z-40 active:scale-90 transition-transform">
-                    <i class="ph-bold ph-plus"></i>
-                </button>
+                <div class="flex gap-2 pt-4 border-t border-dashed border-gray-200">
+                    <input v-model="newTodoText" @keyup.enter="addTodo" type="text" placeholder="新增待辦事項..." class="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-jp-yellow transition-colors shadow-sm">
+                    <button @click="addTodo" class="bg-jp-text text-white px-5 rounded-xl shadow-lg active:scale-95 transition-transform"><i class="ph-bold ph-plus"></i></button>
+                </div>
                 <div class="h-8"></div>
             </div>
 
@@ -1253,6 +1257,44 @@
                 document.body.removeChild(textArea);
             };
 
+            // --- Data Persistence (LocalStorage) ---
+            const saveData = () => {
+                const data = {
+                    tripTitle: tripTitle.value,
+                    tripData: tripData.value,
+                    todoList: todoList.value,
+                    shoppingList: shoppingList.value,
+                    expenses: expenses.value,
+                    infoList: infoList.value
+                };
+                localStorage.setItem('bangkok_trip_data', JSON.stringify(data));
+            };
+
+            const loadData = () => {
+                const saved = localStorage.getItem('bangkok_trip_data');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        tripTitle.value = parsed.tripTitle || tripTitle.value;
+                        // Merge or replace data. Here we replace for simplicity but ensure structure is valid
+                        if (parsed.tripData) tripData.value = parsed.tripData;
+                        if (parsed.todoList) todoList.value = parsed.todoList;
+                        if (parsed.shoppingList) shoppingList.value = parsed.shoppingList;
+                        if (parsed.expenses) expenses.value = parsed.expenses;
+                        if (parsed.infoList) infoList.value = parsed.infoList;
+                    } catch (e) {
+                        console.error('Failed to load saved data', e);
+                    }
+                }
+            };
+
+            const confirmReset = () => {
+                if(confirm('確定要重置所有資料嗎？這將會清除您所有的自訂行程和紀錄。')) {
+                    localStorage.removeItem('bangkok_trip_data');
+                    window.location.reload();
+                }
+            };
+
             const sortableList = ref(null);
             const initSortable = () => {
                 nextTick(() => {
@@ -1281,8 +1323,18 @@
                 if (!val) isEditingExpense.value = false; // Reset flag on close
             });
 
+            // Watch data changes to auto-save
+            watch([tripTitle, tripData, todoList, shoppingList, expenses, infoList], () => {
+                saveData();
+            }, { deep: true });
+
             watch(currentTab, (v) => { if(v === 'map') nextTick(initMap); if(v === 'schedule') initSortable(); });
-            onMounted(() => { initSortable(); fetchWeather(); });
+            
+            onMounted(() => { 
+                loadData(); // Load saved data first
+                initSortable(); 
+                fetchWeather(); 
+            });
 
             return {
                 tripTitle, tripDays, currentTab, selectedDateIdx, tripData, todoList, shoppingList, expenses, infoList,
@@ -1295,7 +1347,8 @@
                 addInfoItem, editInfoItem, saveInfoItem, editingInfo, copyToClipboard, addPlanBToSchedule,
                 locateMe, sortableList, getDayNumber, getDayLabel, getFullDate, getSimpleDate, todoGroups,
                 showConverterModal, converterThb, exchangeRate, convertedTwd, weatherLoading, currentTemp, weatherIcon, walletConverterInput, walletConverterResult,
-                showMetroMap, openInGoogleMaps, isEditing, mapZoom, isEditingExpense, isEditingTodo
+                showMetroMap, openInGoogleMaps, isEditing, mapZoom, isEditingExpense, isEditingTodo,
+                confirmReset // Reset function
             };
         }
     }).mount('#app');
